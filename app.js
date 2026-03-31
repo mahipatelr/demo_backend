@@ -15,7 +15,7 @@ const storage = multer.diskStorage({
     },
   });
   
-  const upload = multer({ storage: storage });
+const upload = multer({ storage: storage });
 
 let houses = [
     {
@@ -91,17 +91,16 @@ let houses = [
     }
 ]
 
-app.get("/api/houses", (req,res)=>{
-    res.send(houses);
+app.get("/api/houses",(req,res)=>{
+  res.send(houses);
 });
 
-app.get("/api/houses/:id"), (req,res)=>{
-    const house=houses.find((h)=>h._id===parseInt(req.params.id));
-    res.send(house);
-}
-    
+app.get("/api/houses/:id", (req,res)=>{
+  const house=houses.find((h)=>h._id===parseInt(req.params.id));
+  res.send(house);
+});
 
 //listen for incoming requests
 app.listen(3001, ()=>{
-    console.log("Server is up and running");
+  console.log("Server is up and running");
 });

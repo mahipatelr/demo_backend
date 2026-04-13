@@ -1,23 +1,12 @@
 const express = require("express");
 const cors = require("cors");
-const multer = require("multer");
+const Joi = require("joi");
 
 const app = express();
 
 app.use(express.static("public"));
 app.use(express.json());
 app.use(cors());
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "./public/");
-  },
-  filename: (req, file, cb) => {
-    cb(null, file.originalname);
-  },
-});
-
-const upload = multer({ storage: storage });
 
 let transactions = [
   { _id: 1, date: "04/23", merchant: "Coffee Shop", category: "Food", amount: -4.0 },
@@ -42,13 +31,41 @@ app.get("/api/transactions", (req, res) => {
 });
 
 app.get("/api/transactions/:id", (req, res) => {
-  const transaction = transactions.find(
-    (t) => t._id === parseInt(req.params.id)
-  );
+  const transaction = transactions.find((t) => t._id === parseInt(req.params.id));
   res.send(transaction);
 });
 
-//listen for incoming requests
+app.post("/api/transactions", (req, res) => {
+  const result = validateTransaction(req.body);
+
+  if (result.error) {
+    return res.status(400).send(result.error.details[0].message);
+  }
+
+  const transaction = {
+    _id: transactions.length + 1,
+    date: req.body.date,
+    merchant: req.body.merchant,
+    category: req.body.category,
+    amount: req.body.amount,
+  };
+
+  transactions.push(transaction);
+  res.status(200).send(transaction);
+});
+
+const validateTransaction = (transaction) => {
+  const schema = Joi.object({
+    _id: Joi.allow(""),
+    date: Joi.string().required(),
+    merchant: Joi.string().min(2).required(),
+    category: Joi.string().min(2).required(),
+    amount: Joi.number().required(),
+  });
+
+  return schema.validate(transaction);
+};
+
 const port = process.env.PORT || 3001;
 app.listen(port, "0.0.0.0", () => {
   console.log(`Server is up and running on ${port}`);

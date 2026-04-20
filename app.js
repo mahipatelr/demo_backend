@@ -26,45 +26,139 @@ let transactions = [
   { _id: 15, date: "04/02", merchant: "Pharmacy", category: "Health", amount: -18.65 },
 ];
 
+const transactionSchema = Joi.object({
+  date: Joi.string()
+    .pattern(/^\d{2}\/\d{2}$/)
+    .required()
+    .messages({
+      "string.empty": "Date is required",
+      "string.pattern.base": "Date must be in MM/DD format",
+      "any.required": "Date is required",
+    }),
+  merchant: Joi.string()
+    .min(2)
+    .required()
+    .messages({
+      "string.empty": "Merchant is required",
+      "string.min": "Merchant must be at least 2 characters",
+      "any.required": "Merchant is required",
+    }),
+  category: Joi.string()
+    .min(2)
+    .required()
+    .messages({
+      "string.empty": "Category is required",
+      "string.min": "Category must be at least 2 characters",
+      "any.required": "Category is required",
+    }),
+  amount: Joi.number()
+    .required()
+    .messages({
+      "number.base": "Amount must be a number",
+      "any.required": "Amount is required",
+    }),
+});
+
+const validateTransaction = (transaction) =>
+  transactionSchema.validate(transaction, { abortEarly: false });
+
+const getNextId = () => {
+  if (transactions.length === 0) return 1;
+  return Math.max(...transactions.map((transaction) => Number(transaction._id))) + 1;
+};
+
 app.get("/api/transactions", (req, res) => {
-  res.send(transactions);
+  res.json(transactions);
 });
 
 app.get("/api/transactions/:id", (req, res) => {
-  const transaction = transactions.find((t) => t._id === parseInt(req.params.id));
-  res.send(transaction);
+  const id = String(req.params.id);
+  const transaction = transactions.find((t) => String(t._id) === id);
+
+  if (!transaction) {
+    return res.status(404).json({ success: false, message: "Transaction not found" });
+  }
+
+  res.json(transaction);
 });
 
 app.post("/api/transactions", (req, res) => {
-  const result = validateTransaction(req.body);
+  const { error } = validateTransaction(req.body);
 
-  if (result.error) {
-    return res.status(400).send(result.error.details[0].message);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.details[0].message,
+    });
   }
 
   const transaction = {
-    _id: transactions.length + 1,
-    date: req.body.date,
-    merchant: req.body.merchant,
-    category: req.body.category,
-    amount: req.body.amount,
+    _id: getNextId(),
+    date: req.body.date.trim(),
+    merchant: req.body.merchant.trim(),
+    category: req.body.category.trim(),
+    amount: Number(req.body.amount),
   };
 
   transactions.push(transaction);
-  res.status(200).send(transaction);
+  res.status(201).json({ success: true, data: transaction });
 });
 
-const validateTransaction = (transaction) => {
-  const schema = Joi.object({
-    _id: Joi.allow(""),
-    date: Joi.string().required(),
-    merchant: Joi.string().min(2).required(),
-    category: Joi.string().min(2).required(),
-    amount: Joi.number().required(),
-  });
+app.put("/api/transactions/:id", (req, res) => {
+  const id = String(req.params.id);
+  const index = transactions.findIndex((t) => String(t._id) === id);
 
-  return schema.validate(transaction);
-};
+  if (index === -1) {
+    return res.status(404).json({
+      success: false,
+      message: "Transaction not found",
+    });
+  }
+
+  const { error } = validateTransaction(req.body);
+
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.details[0].message,
+    });
+  }
+
+  const updatedTransaction = {
+    _id: transactions[index]._id,
+    date: req.body.date.trim(),
+    merchant: req.body.merchant.trim(),
+    category: req.body.category.trim(),
+    amount: Number(req.body.amount),
+  };
+
+  transactions[index] = updatedTransaction;
+
+  res.status(200).json({
+    success: true,
+    data: updatedTransaction,
+  });
+});
+
+app.delete("/api/transactions/:id", (req, res) => {
+  const id = String(req.params.id);
+  const index = transactions.findIndex((t) => String(t._id) === id);
+
+  if (index === -1) {
+    return res.status(404).json({
+      success: false,
+      message: "Transaction not found",
+    });
+  }
+
+  const deletedTransaction = transactions[index];
+  transactions.splice(index, 1);
+
+  res.status(200).json({
+    success: true,
+    data: deletedTransaction,
+  });
+});
 
 const port = process.env.PORT || 3001;
 app.listen(port, "0.0.0.0", () => {
